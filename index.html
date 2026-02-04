@@ -1,52 +1,53 @@
-function doGet() {
-  const props = PropertiesService.getScriptProperties();
-  const hubspotKey = props.getProperty('HUBSPOT_KEY');
-  const lemlistKey = props.getProperty('LEMLIST_KEY');
-  const ANTOINE_ID = "31055478"; 
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Antoine</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f9; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        h2 { color: #2c3e50; text-align: center; }
+        .card { 
+            background: white; border-radius: 10px; padding: 15px; 
+            margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            border-left: 6px solid #2196F3; 
+        }
+        .client { font-size: 1.2em; font-weight: bold; color: #33475b; }
+        .valeur { color: #2ecc71; font-weight: bold; margin: 5px 0; }
+        .etape { background: #eaf0f6; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🚀 Mon Pipeline Antoine</h2>
+        <div id="deals-list">Chargement des deals en cours...</div>
+    </div>
 
-  try {
-    // 1. CHERCHER LES DEALS HUBSPOT
-    const hsUrl = "https://api.hubapi.com/crm/v3/objects/deals/search";
-    const hsPayload = {
-      "filterGroups": [{ "filters": [{ "propertyName": "hubspot_owner_id", "operator": "EQ", "value": ANTOINE_ID }] }],
-      "properties": ["dealname", "amount", "dealstage", "hubspot_owner_id"],
-      "limit": 40
-    };
+    <script>
+        // TON URL DE SCRIPT GOOGLE (Celle qui affiche le texte brut)
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzq6VhfPF2Ie0QSPtTmXva1uQw--aa-a6V_zFEg5AAg6eiMq_pWMXf7r8krvD1cZHrNKw/exec';
 
-    const hsRes = UrlFetchApp.fetch(hsUrl, {
-      "method": "POST",
-      "headers": { "Authorization": "Bearer " + hubspotKey, "Content-Type": "application/json" },
-      "payload": JSON.stringify(hsPayload)
-    });
-    const deals = JSON.parse(hsRes.getContentText()).results;
+        async function getDeals() {
+            try {
+                const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
+                const deals = await response.json();
+                const container = document.getElementById('deals-list');
+                container.innerHTML = '';
 
-    // 2. CHERCHER LES INFOS LEMLIST (On récupère tes stats de campagnes)
-    // Note: Lemlist utilise une authentification Basic (ton API Key)
-    const lemUrl = "https://api.lemlist.com/api/team"; 
-    const lemRes = UrlFetchApp.fetch(lemUrl, {
-      "headers": { "Authorization": "Basic " + Utilities.base64Encode(lemlistKey) }
-    });
-    // On pourra affiner ici pour chercher un contact précis dès qu'on a testé la connexion
-
-    const etapesMap = {
-      "audit": "Audit", "atemporiser": "À temporiser", "623623379": "À temporiser",
-      "623623377": "RDV Fixé", "623623376": "Audit", "623623375": "First Call",
-      "637362653": "First Call", "637362652": "Audit", "653059576": "Won"
-    };
-
-    const dashboardData = deals.map(d => {
-      return {
-        client: d.properties.dealname,
-        valeur: d.properties.amount ? d.properties.amount + " €" : "0 €",
-        etape: etapesMap[d.properties.dealstage] || d.properties.dealstage,
-        lemlistStatus: "Connecté ✅" // Pour l'instant on teste juste si Lemlist répond
-      };
-    });
-
-    return ContentService.createTextOutput(JSON.stringify(dashboardData, null, 2))
-      .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (e) {
-    return ContentService.createTextOutput("Erreur : " + e.toString());
-  }
-}
+                deals.forEach(deal => {
+                    container.innerHTML += `
+                        <div class="card">
+                            <div class="client">${deal.client}</div>
+                            <div class="valeur">${deal.valeur}</div>
+                            <span class="etape">${deal.etape}</span>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                document.getElementById('deals-list').innerText = 'Erreur de connexion avec Google Script.';
+            }
+        }
+        getDeals();
+    </script>
+</body>
+</html>
