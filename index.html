@@ -1,0 +1,52 @@
+function doGet() {
+  const props = PropertiesService.getScriptProperties();
+  const hubspotKey = props.getProperty('HUBSPOT_KEY');
+  const lemlistKey = props.getProperty('LEMLIST_KEY');
+  const ANTOINE_ID = "31055478"; 
+
+  try {
+    // 1. CHERCHER LES DEALS HUBSPOT
+    const hsUrl = "https://api.hubapi.com/crm/v3/objects/deals/search";
+    const hsPayload = {
+      "filterGroups": [{ "filters": [{ "propertyName": "hubspot_owner_id", "operator": "EQ", "value": ANTOINE_ID }] }],
+      "properties": ["dealname", "amount", "dealstage", "hubspot_owner_id"],
+      "limit": 40
+    };
+
+    const hsRes = UrlFetchApp.fetch(hsUrl, {
+      "method": "POST",
+      "headers": { "Authorization": "Bearer " + hubspotKey, "Content-Type": "application/json" },
+      "payload": JSON.stringify(hsPayload)
+    });
+    const deals = JSON.parse(hsRes.getContentText()).results;
+
+    // 2. CHERCHER LES INFOS LEMLIST (On récupère tes stats de campagnes)
+    // Note: Lemlist utilise une authentification Basic (ton API Key)
+    const lemUrl = "https://api.lemlist.com/api/team"; 
+    const lemRes = UrlFetchApp.fetch(lemUrl, {
+      "headers": { "Authorization": "Basic " + Utilities.base64Encode(lemlistKey) }
+    });
+    // On pourra affiner ici pour chercher un contact précis dès qu'on a testé la connexion
+
+    const etapesMap = {
+      "audit": "Audit", "atemporiser": "À temporiser", "623623379": "À temporiser",
+      "623623377": "RDV Fixé", "623623376": "Audit", "623623375": "First Call",
+      "637362653": "First Call", "637362652": "Audit", "653059576": "Won"
+    };
+
+    const dashboardData = deals.map(d => {
+      return {
+        client: d.properties.dealname,
+        valeur: d.properties.amount ? d.properties.amount + " €" : "0 €",
+        etape: etapesMap[d.properties.dealstage] || d.properties.dealstage,
+        lemlistStatus: "Connecté ✅" // Pour l'instant on teste juste si Lemlist répond
+      };
+    });
+
+    return ContentService.createTextOutput(JSON.stringify(dashboardData, null, 2))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (e) {
+    return ContentService.createTextOutput("Erreur : " + e.toString());
+  }
+}
